@@ -5,6 +5,9 @@ Module.register('MMM-MicrosoftToDo', {
 
   // Override dom generator.
   getDom: function () {
+    // Task IDs that should be ignored
+    var IGNORE_ID = 'AQMkADAwATMwMAItMDNiNC1jNjg5LTAwAi0wMAoARgAAA2-6Z9TDWtNAlwBKC_JIRgUHAHa_V2dgacJFvUQTmQxnAMkAAQ_O0nMAAAB2vldnYGnCRb1EE5kMZwDJAAINSd-cAAAA'
+
     // copy module object to be accessible in callbacks
     var self = this
 
@@ -24,7 +27,11 @@ Module.register('MMM-MicrosoftToDo', {
       // Define variable itemCounter and set to 0
       var itemCounter = 0
       this.list.forEach(function (element) {
-        // Get due date array
+        if (element.id == IGNORE_ID) {
+	  return
+	}
+
+	// Get due date array
         var taskDue = ''
         if (self.config.showDueDate === true && element.dueDateTime != null) {
           // timezone is returned as UTC
@@ -54,7 +61,7 @@ Module.register('MMM-MicrosoftToDo', {
           }
         }
 
-        var listItemText = document.createTextNode(checkbox + taskDue + element.subject)
+        var listItemText = document.createTextNode(checkbox + taskDue + element.title)
         listItem.appendChild(listItemText)
         // complete task when clicked on it
         if (self.config.completeOnClick) {
@@ -62,7 +69,7 @@ Module.register('MMM-MicrosoftToDo', {
             self.sendSocketNotification('COMPLETE_TASK', { module: self.data.identifier, taskId: element.id, config: self.config })
           }
         }
-        listWrapper.appendChild(listItem)
+	listWrapper.appendChild(listItem)
       })
     } else {
       // otherwise indicate that there are no list entries

@@ -28,13 +28,18 @@ module.exports = NodeHelper.create({
     // copy context to be available inside callbacks
     var self = this
 
-    var completeTaskUrl = 'https://graph.microsoft.com/beta/me/outlook/tasks/' + taskId + '/complete'
+    var completeTaskUrl = 'https://graph.microsoft.com/v1.0/me/todo/lists/' + config._listId + '/tasks/' + taskId
+    var bodyString = JSON.stringify({completedDateTime: {date_time: '2021-07-11T23:08:00', timeZone: 'Pacific Standard Time'}})
 
-    request.post({
+    /* TODO(elizabeth) figure out why this request currently returns an Internal Server Error. */
+    request.patch({
       url: completeTaskUrl,
       headers: {
-        Authorization: 'Bearer ' + self.accessToken
-      }
+        Authorization: 'Bearer ' + self.accessToken,
+	'content-type': 'application/json',
+	'content-length': bodyString.length
+      },
+	body: JSON.stringify({completedDateTime: {date_time: '2021-07-01T16:00:00', timeZone: 'Pacific Standard Time'}})
     }, function (error, response, body) {
       if (error) {
         console.error(self.name + ' - Error while requesting access token:')
@@ -96,8 +101,7 @@ module.exports = NodeHelper.create({
 
       // get tasks
       var _getTodos = function () {
-        var orderBy = (config.orderBy === 'subject' ? '&$orderby=subject' : '') + (config.orderBy === 'dueDate' ? '&$orderby=duedatetime/datetime' : '')
-        var listUrl = 'https://graph.microsoft.com/beta/me/outlook/taskFolders/' + config._listId + '/tasks?$select=subject,status,duedatetime&$top=' + config.itemLimit + '&$filter=status%20ne%20%27completed%27' + orderBy
+        var listUrl = 'https://graph.microsoft.com/v1.0/me/todo/lists/' + config._listId + '/tasks?$select=status,duedatetime&$top=' + config.itemLimit + '&$filter=status%20ne%20%27completed%27'
 
         request.get({
           url: listUrl,
@@ -109,6 +113,7 @@ module.exports = NodeHelper.create({
             console.error(self.name + ' - Error while requesting access token:')
             console.error(error)
           }
+
 
           if (body && JSON.parse(body).error) {
             console.error(self.name + ' - Error while requesting tasks:')
@@ -126,7 +131,7 @@ module.exports = NodeHelper.create({
       }
 
       // get ID of task folder
-      var taksFoldersUrl = 'https://graph.microsoft.com/beta/me/outlook/taskFolders/?$top=200'
+      var taksFoldersUrl = 'https://graph.microsoft.com/v1.0/me/todo/lists/?$top=200'
 
       request.get({
         url: taksFoldersUrl,
@@ -135,10 +140,10 @@ module.exports = NodeHelper.create({
         }
       }, function (error, response, body) {
         if (error) {
-          console.error(self.name + ' - Error while requesting task folders:')
+          console.error(self.name + ' - Error while requesting todo lists:')
           console.error(error)
 
-          self.sendSocketNotification('FETCH_INFO_ERROR_' + config.id, { error: 'Error while requesting task folders', errorDescription: error })
+          self.sendSocketNotification('FETCH_INFO_ERROR_' + config.id, { error: 'Error while requesting todo lists', errorDescription: error })
 
           return
         }
@@ -148,7 +153,8 @@ module.exports = NodeHelper.create({
 
         // if list name was provided, retrieve its ID
         if (config.listName !== undefined && config.listName !== '') {
-          list.value.forEach(element => element.name === config.listName ? (config._listId = element.id) : '')
+          list.value.forEach(element => element.displayName === config.listName ? (config._listId = element.id) : '')
+	  list.value.forEach(element => console.warn(element.displayName))
         } else if (config.listId !== undefined && config.listId !== '') {
           // if list ID was provided copy it to internal list ID config and show deprecation warning
           config._listId = config.listId
